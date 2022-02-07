@@ -7,6 +7,6 @@ The Conway's Game of Life written with Pygame.
 An initial pattern:
 ![example1](assets/example.png)
 
-To start the simulation you can press **ESPACE**:
+To start the simulation you can press **SPACE**:
 > A frame from the simulation
 ![example2](assets/example2.png)
