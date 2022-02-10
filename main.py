@@ -5,25 +5,24 @@ pygame.init()
 # Initial configuration
 CELL_SIZE=15
 WINDOW_SIZE=(80,60)
-TAB_NAISSANCES=[]
-TAB_MORTS=[]
+TAB_BIRTH=[]
+TAB_DEATH=[]
 # ---
 screen = pygame.display.set_mode((WINDOW_SIZE[0]*CELL_SIZE, WINDOW_SIZE[1]*CELL_SIZE))
 pygame.display.set_caption("Conway_gol")
+clock = pygame.time.Clock()
 
 # Generate the cell grid
-def generate(w,h):
+def generate(w,h,size):
+    screen.fill((255,255,255))
     res={}
     for x in range(w):
         for y in range(h):
             res[(x,y)] = False
+            pygame.draw.rect(screen, (0,0,0), pygame.Rect(x*size,y*size,size,size),1)
     return res
 
-GRID = generate(*WINDOW_SIZE)
-
-screen.fill((255,255,255))
-for ((x,y),_) in GRID.items():
-    pygame.draw.rect(screen, (0,0,0), pygame.Rect(x*CELL_SIZE,y*CELL_SIZE,CELL_SIZE,CELL_SIZE),1)
+GRID = generate(*WINDOW_SIZE,CELL_SIZE)
 
 # Set a cell alive or dead 
 def setState(coord,state):
@@ -46,14 +45,12 @@ def neighbours(coord):
         if not((c[0] < 0 or c[1] < 0) or (c[0] > WINDOW_SIZE[0]-1 or c[1] > WINDOW_SIZE[1]-1)):
             if GRID[c]: alive += 1
     return alive
-    
-# Rendering the program
+
 loop=True
 while loop:
     for event in pygame.event.get():
         # -------------------------------
-        if event.type == pygame.QUIT:
-            loop = False
+        if event.type == pygame.QUIT: loop = False
         # -------------------------------
         elif event.type == pygame.MOUSEBUTTONDOWN:
             (x,y) = pygame.mouse.get_pos()
@@ -63,31 +60,43 @@ while loop:
             else:
                 setState(cell_coords, True)
         # -------------------------------
-        elif event.type == pygame.KEYDOWN:
-            if event.key == pygame.K_SPACE:
-                while loop:
-                    for event in pygame.event.get():
-                        if event.type == pygame.QUIT:
-                            loop = False
+        elif event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE:
+            while loop:
+                for event in pygame.event.get():
+                    # Exit the program during the simulation
+                    if event.type == pygame.QUIT: loop = False
+                    # Pause the simulation
+                    elif event.type == pygame.KEYDOWN and event.key == pygame.K_RETURN:
+                        l=True
+                        while l:
+                            for event in pygame.event.get():
+                                # Exit the program when the similation is paused
+                                if event.type == pygame.QUIT:
+                                    l=False
+                                    loop = False
+                                # Resume the simulation
+                                elif event.type == pygame.KEYDOWN and event.key == pygame.K_RETURN:
+                                    l = False
 
-                    for (coord,_) in GRID.items():
-                        if GRID[coord]:
-                            # A cell survive only if he has 2 or 3 alive neighbours cells
-                            if not(neighbours(coord) == 3 or neighbours(coord) == 2):
-                                TAB_MORTS.append(coord)
-                        else:
-                            # If a dead cell has 3 alive neighbours cells, he wil become alive
-                            if neighbours(coord) == 3:
-                                TAB_NAISSANCES.append(coord)
+                for (coord,_) in GRID.items():
+                    if GRID[coord]:
+                        # A cell survive only if he has 2 or 3 alive neighbours cells
+                        if not(neighbours(coord) == 3 or neighbours(coord) == 2):
+                            TAB_DEATH.append(coord)
+                    else:
+                        # If a dead cell has 3 alive neighbours cells, he wil become alive
+                        if neighbours(coord) == 3:
+                            TAB_BIRTH.append(coord)
 
-                    for n in TAB_NAISSANCES:
-                        setState(n,True)
-                    TAB_NAISSANCES=[]
+                for n in TAB_BIRTH:
+                    setState(n,True)
+                TAB_BIRTH=[]
 
-                    for m in TAB_MORTS:
-                        setState(m,False)
-                    TAB_MORTS=[]
+                for m in TAB_DEATH:
+                    setState(m,False)
+                TAB_DEATH=[]
 
-                    pygame.display.flip()
-                    pygame.time.delay(100)
+                pygame.display.flip()
+                pygame.time.delay(100)
     pygame.display.flip()
+    clock.tick(60)
