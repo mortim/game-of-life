@@ -1,4 +1,22 @@
 import pygame
+import rle
+
+print("1) Load a RLE file\n2) Continue without load a file\n3) Quit the program\n")
+loop = True
+load_file_option = False
+filepath = ""
+while loop:
+    choice = input("> ")
+    if choice == "1":
+        filepath = input("filepath: ")
+        load_file_option = True
+        loop = False
+    elif choice == "2":
+        loop = False
+    elif choice == "3":
+        exit()
+    else:
+        print("The command is unknown")
 
 pygame.init()
 
@@ -46,6 +64,26 @@ def neighbours(coord):
             if GRID[c]: alive += 1
     return alive
 
+def changeCellState(coords):
+    (x,y) = coords
+    cell_coords=(x//CELL_SIZE,y//CELL_SIZE)
+    if GRID[cell_coords]:
+        setState(cell_coords, False)
+    else:
+        setState(cell_coords, True)
+
+if load_file_option:
+    r = rle.RLE(filepath,(10,10))
+    output = r.parse()
+    print(f"Loading the '{filepath}' file...")
+    print(f"""
+The pattern '{output["name"]}' is loaded by {output["author"]}
+{output["description"]}
+    """)
+    for (x,y) in output["cells"]:
+        setState((x,y), True)
+    pygame.display.flip()
+
 loop=True
 while loop:
     for event in pygame.event.get():
@@ -53,12 +91,7 @@ while loop:
         if event.type == pygame.QUIT: loop = False
         # -------------------------------
         elif event.type == pygame.MOUSEBUTTONDOWN:
-            (x,y) = pygame.mouse.get_pos()
-            cell_coords=(x//CELL_SIZE,y//CELL_SIZE)
-            if GRID[cell_coords]:
-                setState(cell_coords, False)
-            else:
-                setState(cell_coords, True)
+            changeCellState(pygame.mouse.get_pos())
         # -------------------------------
         elif event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE:
             while loop:
@@ -74,6 +107,9 @@ while loop:
                                 if event.type == pygame.QUIT:
                                     l=False
                                     loop = False
+                                elif event.type == pygame.MOUSEBUTTONDOWN:
+                                    changeCellState(pygame.mouse.get_pos())
+                                    pygame.display.flip()
                                 # Resume the simulation
                                 elif event.type == pygame.KEYDOWN and event.key == pygame.K_RETURN:
                                     l = False
