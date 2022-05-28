@@ -10,8 +10,13 @@ class GOL:
         self.tab_death = []
         self.filepath = ""
         self.load_option = False
+        self.speed_factor = 1
+        self.time = 100
         # ----
         self.screen = None
+        self.font = None
+        self.sub = None
+        # ----
         pygame.display.set_caption("game of life")
         self.clock = pygame.time.Clock()
         
@@ -22,14 +27,12 @@ class GOL:
                 self.grid[(x,y)] = False
                 pygame.draw.rect(self.screen, (0,0,0), pygame.Rect(x*self.cell_size,y*self.cell_size,self.cell_size,self.cell_size),1)
     
-    def set_state(self,coord,state):
+    def set_state(self,coord,is_mouse_coords=False):
+        if is_mouse_coords:
+            coord = (coord[0]//self.cell_size,coord[1]//self.cell_size)
         surf = pygame.Surface((self.cell_size-2,self.cell_size-2))
-        if state:
-            surf.fill((0,0,0))
-            self.grid[coord] = True
-        else:
-            surf.fill((255,255,255))
-            self.grid[coord] = False
+        surf.fill((255, 255, 255) if self.grid[coord] else (0,0,0))
+        self.grid[coord] = not self.grid[coord] 
         self.screen.blit(surf, (coord[0]*self.cell_size+1, coord[1]*self.cell_size+1))
 
     def neighbours(self,coord):
@@ -42,9 +45,22 @@ class GOL:
                 if self.grid[c]: alive += 1
         return alive
 
-    def convert_mouse_coords_on_grid(self,mouse_coords):
-        x,y = mouse_coords
-        return (x//self.cell_size,y//self.cell_size)
+    def is_simulation_finished(self):
+        return all(map(lambda x: not x, self.grid.values()))
+        
+    def change_speed_simulation(self,mode):
+        if mode == "increase" and self.time > 1:
+            self.time //= 2
+            self.speed_factor *= 2
+        if mode == "decrease" and self.speed_factor > 0.1:
+            self.time *= 2
+            self.speed_factor /= 2
+        if self.speed_factor == 1.0: self.time = 100
+        self.render_font()
+
+    def render_font(self):
+        self.sub.fill((255,255,255))
+        self.sub.blit(self.font.render(f"x{float(self.speed_factor)}",True,(0,0,0)), (10,10))
     
     def menu(self):
         print("1) Load a RLE file\n2) Continue without load a file\n3) Quit the program\n")
@@ -54,52 +70,46 @@ class GOL:
                 self.filepath = input("filepath: ")
                 self.load_option = True
                 return
-            if choice == "2":
-                return
-            if choice == "3":
-                exit()
+            if choice == "2": return
+            if choice == "3": exit()
             print("The command is unknown")
 
     def simulate(self):
-        loop=True
-        while loop:
+        while True:
             for event in pygame.event.get():
                 # -------------------------------
-                if event.type == pygame.QUIT: loop = False
+                if event.type == pygame.QUIT: return
                 # -------------------------------
-                elif pygame.mouse.get_pressed()[0]:
-                    cell_coords = self.convert_mouse_coords_on_grid(pygame.mouse.get_pos())
-                    self.set_state(cell_coords, not self.grid[cell_coords])
+                elif pygame.mouse.get_pressed()[0]: self.set_state(pygame.mouse.get_pos(), True)
                 # -------------------------------
                 elif event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE:
-                    loop_=True
-                    while loop_:
-                        if all(map(lambda x: not x, self.grid.values())):
-                            loop_ = False
-
+                    loop=True
+                    while loop:
+                        if self.is_simulation_finished(): loop = False
+                        # -------------------------------
                         for event in pygame.event.get():
                             # Exit the program during the simulation
-                            if event.type == pygame.QUIT:
-                                loop_ = False
-                                loop = False
-                            # Pause the simulation
-                            elif event.type == pygame.KEYDOWN and event.key == pygame.K_RETURN:
-                                l=True
-                                while l:
-                                    for event in pygame.event.get():
-                                        # Exit the program when the simulation is paused
-                                        if event.type == pygame.QUIT:
-                                            l = False
-                                            loop_ = False
-                                            loop = False
-
-                                        elif pygame.mouse.get_pressed()[0]:
-                                            cell_coords = self.convert_mouse_coords_on_grid(pygame.mouse.get_pos())
-                                            self.set_state(cell_coords, not self.grid[cell_coords])
-                                            pygame.display.flip()
-                                        # Resume the simulation
-                                        elif event.type == pygame.KEYDOWN and event.key == pygame.K_RETURN:
-                                            l = False
+                            if event.type == pygame.QUIT: return
+                            # -------------------------------
+                            elif event.type == pygame.KEYDOWN:
+                                if event.key == pygame.K_UP:
+                                    self.change_speed_simulation("increase")
+                                # -------------------------------
+                                elif event.key == pygame.K_DOWN:
+                                    self.change_speed_simulation("decrease")
+                                # Pause the simulation
+                                elif event.key == pygame.K_RETURN:
+                                    l = True
+                                    while l:
+                                        for event in pygame.event.get():
+                                            # Exit the program when the simulation is paused
+                                            if event.type == pygame.QUIT: return
+                                            # -------------------------------
+                                            elif pygame.mouse.get_pressed()[0]:
+                                                self.set_state(pygame.mouse.get_pos(), True)
+                                                pygame.display.flip()
+                                            # Resume the simulation
+                                            elif event.type == pygame.KEYDOWN and event.key == pygame.K_RETURN: l = False
         
                         for (coord,_) in self.grid.items():
                             if self.grid[coord]:
@@ -112,23 +122,28 @@ class GOL:
                                     self.tab_birth.append(coord)
 
                         for n in self.tab_birth:
-                            self.set_state(n,True)
+                            self.set_state(n)
                         self.tab_birth=[]
 
                         for m in self.tab_death:
-                            self.set_state(m,False)
+                            self.set_state(m)
                         self.tab_death=[]
 
                         pygame.display.flip()
-                        pygame.time.delay(100)
+                        pygame.time.delay(self.time)
             pygame.display.flip()
             self.clock.tick(60)
 
     def run(self):
         self.menu()
+        # ----
         pygame.init()
         self.screen = pygame.display.set_mode((self.window_size[0]*self.cell_size, self.window_size[1]*self.cell_size))
+        self.font = pygame.font.SysFont('Arial', 35)
+        self.sub = self.screen.subsurface(pygame.Rect(10,10,95,50))
+        # ----
         self.generate()
+        self.render_font()
         # ----
         if self.load_option:
             r = rle.RLE(self.filepath,self.window_size)
@@ -137,7 +152,7 @@ class GOL:
             print(f"\nThe pattern '{output['name']}' is loaded by {output['author']}\n{output['description']}")
             # ---
             for (x,y) in output["cells"]:
-                self.set_state((x,y), True)
+                self.set_state((x,y))
             pygame.display.flip()
         # ----
         self.simulate()
